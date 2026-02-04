@@ -186,10 +186,13 @@
             const rows = text.trim().split(/\r?\n/);
             const headers = rows[0].split(",").map(h => h.trim());
             const data = rows.slice(1).map(row => {
-                const cols = row.split(",");
+                // const cols = row.split(",");
+                const cols = row.match(/(".*?"|[^,\s]+)(?=\s*,|\s*$)/g) || [];
                 const obj = {};
+
                 headers.forEach((header, i) => {
-                    obj[header] = cols[i]?.trim() || "";
+                    const value = cols[i]?.replace(/^"|"/g, "").trim() || "";
+                    obj[header] = value;
                 });
                 return obj;
             });
@@ -225,10 +228,11 @@
 
             list.innerHTML = "";
             const headers = Object.keys(dataCsv[0]);
-            const phoneKey = headers.find(h => /phone|nomor|no.?hp/i.test(h));
+            const phoneKey = headers.find(h => /phone|nomor|hp|whatsapp|hp|no.?hp/i.test(h));
+            const nameContact = headers.find(h => /name|nama|nama?lengkap/i.test(h));
 
             if (!phoneKey) {
-                list.innerHTML = "<li>⚠️ Tidak ditemukan kolom nomor telepon (Phone/Nomor/NoHp).</li>";
+                list.innerHTML = "<li>⚠️ Tidak ditemukan kolom nomor telepon (Phone/Nomor/Hp/Whatsapp/NoHp).</li>";
                 return;
             }
 
@@ -241,7 +245,7 @@
                     : phone.replace(/^(\+62)/, "62");
 
                 const msg = generateMessage(message.value, item);
-                const displayName = item[headers[0]] || waNumber;
+                const displayName = item[nameContact] || waNumber;
 
                 const link = `
           <li>
