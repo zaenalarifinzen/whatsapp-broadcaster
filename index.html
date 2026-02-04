@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Broadcaster</title>
+    <link rel="icon" href="https://static.whatsapp.net/rsrc.php/ym/r/Q_5apw1Siln.webp">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Poppins", sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #111B21, #111B21);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #28c469;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .message {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            border-radius: 8px;
+            border: 1px solid #beebe0;
+            padding: 10px;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            border-color: #22C063;
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.2);
+            outline: none;
+        }
+
+        input[type="file"] {
+            padding: 8px;
+            background: #f1fffe;
+            border-radius: 8px;
+            border: 1px solid #beebe0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .description {
+            font-size: 12px;
+        }
+
+        #generate-btn {
+            color: white;
+            background-color: #22C063;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 0px;
+        }
+
+        #generate-btn:hover {
+            background-color: #28c469;
+        }
+
+        .link {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+        }
+
+        #link-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #link-list li a {
+            display: block;
+            background: #08a065;
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.25s ease;
+        }
+
+        #link-list li a:hover {
+            background: #10af72;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #link-list li a:visited {
+            background: #2f3131;
+            color: #e8eaf6;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .message,
+            .link {
+                padding: 15px;
+            }
+
+            textarea {
+                min-height: 100px;
+            }
+
+            #link-list li a {
+                font-size: 14px;
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>WhatsApp Broadcaster</h1>
+
+    <div class="message">
+        <label for="file">File CSV</label>
+        <input type="file" name="file" id="file" accept=".csv">
+        <div class="description">
+            <p id="column-info"></p>
+        </div>
+
+        <label for="message">Isi Pesan</label>
+        <textarea name="message" id="message" placeholder="Tulis pesan di sini..."></textarea>
+        <p class="description">
+            Gunakan <b>[nama-kolom]</b> sesuai header di file CSV.
+            <br>Contoh: "Halo [Nama], nomor kamu [Nomor]."
+        </p>
+
+        <button type="button" onclick="generateLinks()" id="generate-btn">Generate Link</button>
+    </div>
+
+    <div class="link">
+        <ul id="link-list"></ul>
+    </div>
+
+    <script>
+        const message = document.getElementById('message');
+        const fileInput = document.getElementById('file');
+        const info = document.getElementById('column-info');
+        const list = document.getElementById('link-list');
+        let dataCsv = [];
+
+        function parseCSV(text) {
+            const rows = text.trim().split(/\r?\n/);
+            const headers = rows[0].split(",").map(h => h.trim());
+            const data = rows.slice(1).map(row => {
+                const cols = row.split(",");
+                const obj = {};
+                headers.forEach((header, i) => {
+                    obj[header] = cols[i]?.trim() || "";
+                });
+                return obj;
+            });
+            return { headers, data };
+        }
+
+        function generateMessage(template, item) {
+            let result = template;
+            for (const key in item) {
+                const regex = new RegExp(`\\[${key}\\]`, "gi");
+                result = result.replace(regex, item[key]);
+            }
+            return encodeURIComponent(result);
+        }
+
+        function showAvailableColumn(headers) {
+            if (headers.length === 0) {
+                info.innerHTML = "<b>Tidak ada kolom terdeteksi.</b>";
+                return;
+            }
+            const formatted = headers.map(h => `<code>[${h}]</code>`).join(", ");
+            info.innerHTML = `<b>Kolom :</b> ${formatted}`;
+        }
+
+        function generateLinks() {
+            if (dataCsv.length === 0) {
+                list.innerHTML = "<li>⚠️ Upload file CSV terlebih dahulu.</li>";
+                return;
+            } else if (message.value.trim() === "") {
+                list.innerHTML = "<li>⚠️ Pesan masih kosong.</li>";
+                return;
+            }
+
+            list.innerHTML = "";
+            const headers = Object.keys(dataCsv[0]);
+            const phoneKey = headers.find(h => /phone|nomor|no.?hp/i.test(h));
+
+            if (!phoneKey) {
+                list.innerHTML = "<li>⚠️ Tidak ditemukan kolom nomor telepon (Phone/Nomor/NoHp).</li>";
+                return;
+            }
+
+            dataCsv.forEach(item => {
+                const phone = (item[phoneKey] || "").trim();
+                if (!phone) return;
+
+                const waNumber = phone.startsWith("0")
+                    ? "62" + phone.slice(1)
+                    : phone.replace(/^(\+62)/, "62");
+
+                const msg = generateMessage(message.value, item);
+                const displayName = item[headers[0]] || waNumber;
+
+                const link = `
+          <li>
+            <a href="https://wa.me/${waNumber}?text=${msg}" target="_blank">
+              ${displayName}
+            </a>
+          </li>`;
+                list.innerHTML += link;
+            });
+        }
+
+        fileInput.addEventListener("change", () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const text = e.target.result;
+                const { headers, data } = parseCSV(text);
+                dataCsv = data;
+                showAvailableColumn(headers);
+                list.innerHTML = "";
+            };
+            reader.readAsText(file);
+        });
+    </script>
+</body>
+
+
+</html>
